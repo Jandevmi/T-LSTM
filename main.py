@@ -15,9 +15,11 @@
 import tensorflow as tf
 import numpy as np
 import pandas as pd
+from sklearn.metrics import f1_score
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import roc_auc_score
 import sys
+np.set_printoptions(threshold=sys.maxsize)
 import math
 
 from TLSTM import TLSTM
@@ -85,13 +87,13 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
             else:
                 print(' Epoch worse')
 
-            if best_epoch + 10 == epoch:
+            if best_epoch + 20 == epoch:
                 print('Break!')
                 break
 
         print("Training is over!")
-        saver.save(sess, model_path)
-
+        saver.save(best_sess, model_path)
+        saver.restore(sess, model_path)
         Y_pred = []
         Y_true = []
         Labels = []
@@ -119,6 +121,12 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
         total_acc = accuracy_score(Y_true, Y_pred)
         total_auc = roc_auc_score(Labels, Logits, average='micro')
         total_auc_macro = roc_auc_score(Labels, Logits, average='macro')
+        f1 = f1_score(Y_true, Y_pred, average='macro')
+        print("Y_true")
+        print(Y_true)
+        print('Y_pred')
+        print(Y_pred)
+        print("Train F1 = {:.3f}".format(f1))
         print("Train Accuracy = {:.3f}".format(total_acc))
         print("Train AUC = {:.3f}".format(total_auc))
         print("Train AUC Macro = {:.3f}".format(total_auc_macro))
@@ -173,12 +181,19 @@ def testing(path, hidden_dim, fc_dim, key, model_path):
                 Y_pred = y_pred_test
                 Labels = labels_test
                 Logits = logits_test
+
+        total_acc = accuracy_score(Y_true, Y_pred)
         total_auc = roc_auc_score(Labels, Logits, average='micro')
         total_auc_macro = roc_auc_score(Labels, Logits, average='macro')
-        total_acc = accuracy_score(Y_true, Y_pred)
-        print("Test Accuracy = {:.3f}".format(total_acc))
-        print("Test AUC Micro = {:.3f}".format(total_auc))
-        print("Test AUC Macro = {:.3f}".format(total_auc_macro))
+        f1 = f1_score(Y_true, Y_pred)
+        print("Y_true")
+        print(Y_true)
+        print('Y_pred')
+        print(Y_pred)
+        print("Train F1 = {:.3f}".format(f1))
+        print("Train Accuracy = {:.3f}".format(total_acc))
+        print("Train AUC = {:.3f}".format(total_auc))
+        print("Train AUC Macro = {:.3f}".format(total_auc_macro))
 
 
 def main(argv):
