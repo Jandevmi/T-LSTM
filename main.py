@@ -61,6 +61,9 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
 
     with tf.compat.v1.Session() as sess:
         sess.run(init)
+        best_cost = 100
+        best_sess = sess
+        best_epoch = 0
         for epoch in range(training_epochs):  #
             # Loop over all batches
             total_cost = 0
@@ -69,8 +72,22 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
                 batch_xs, batch_ys, batch_ts = data_train_batches[i], labels_train_batches[i], \
                                                elapsed_train_batches[i]
                 batch_ts = np.reshape(batch_ts, [batch_ts.shape[0], batch_ts.shape[2]])
-                sess.run(optimizer, feed_dict={lstm.input: batch_xs, lstm.labels: batch_ys, \
-                                               lstm.keep_prob: train_dropout_prob, lstm.time: batch_ts})
+                _, loss = sess.run([optimizer, cross_entropy], feed_dict={lstm.input: batch_xs, lstm.labels: batch_ys,
+                                                   lstm.keep_prob: train_dropout_prob, lstm.time: batch_ts})
+                total_cost += loss
+
+            print('total_cost: ' + str(total_cost), end='')
+            if total_cost <= best_cost:
+                print(' better epoch: ' + str(epoch))
+                best_cost = total_cost
+                best_sess = sess
+                best_epoch = epoch
+            else:
+                print(' Epoch worse')
+
+            if best_epoch + 10 == epoch:
+                print('Break!')
+                break
 
         print("Training is over!")
         saver.save(sess, model_path)
