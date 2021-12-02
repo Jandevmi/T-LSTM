@@ -14,43 +14,36 @@
 
 import tensorflow as tf
 import numpy as np
-import scipy.io as sio
+import pandas as pd
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import roc_auc_score
-from sklearn.utils import shuffle
 import sys
 import math
-import cPickle
-
 
 from TLSTM import TLSTM
 
-def load_pkl(path):
-    with open(path) as f:
-        obj = cPickle.load(f)
-        return obj
 
 def convert_one_hot(label_list):
     for i in range(len(label_list)):
-        sec_col = np.ones([label_list[i].shape[0],label_list[i].shape[1],1])
-        label_list[i] = np.reshape(label_list[i],[label_list[i].shape[0],label_list[i].shape[1],1])
+        sec_col = np.ones([label_list[i].shape[0], label_list[i].shape[1], 1])
+        label_list[i] = np.reshape(label_list[i], [label_list[i].shape[0], label_list[i].shape[1], 1])
         sec_col -= label_list[i]
-        label_list[i] = np.concatenate([label_list[i],sec_col],2)
+        label_list[i] = np.concatenate([label_list[i], sec_col], 2)
     return label_list
 
 
-def training(path,learning_rate,training_epochs,train_dropout_prob,hidden_dim,fc_dim,key,model_path):
+def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_dim, fc_dim, key, model_path):
     path_string = path + '/data_train.pkl'
-    data_train_batches = load_pkl(path_string)
+    data_train_batches = pd.read_pickle(path_string)
 
     path_string = path + '/elapsed_train.pkl'
-    elapsed_train_batches = load_pkl(path_string)
+    elapsed_train_batches = pd.read_pickle(path_string)
 
     path_string = path + '/label_train.pkl'
-    labels_train_batches = load_pkl(path_string)
+    labels_train_batches = pd.read_pickle(path_string)
 
     path_string = path + '/hidden_ind_train.pkl'
-    hidden_ind_train = load_pkl(path_string)
+    hidden_ind_train = pd.read_pickle(path_string)
 
     number_train_batches = len(data_train_batches)
     print("Train data is loaded!")
@@ -58,15 +51,15 @@ def training(path,learning_rate,training_epochs,train_dropout_prob,hidden_dim,fc
     input_dim = data_train_batches[0].shape[2]
     output_dim = labels_train_batches[0].shape[1]
 
-    lstm = TLSTM(input_dim, output_dim, hidden_dim, fc_dim,key)
+    lstm = TLSTM(input_dim, output_dim, hidden_dim, fc_dim, key)
 
     cross_entropy, y_pred, y, logits, labels = lstm.get_cost_acc()
     optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cross_entropy)
 
-    init = tf.global_variables_initializer()
-    saver = tf.train.Saver()
+    init = tf.compat.v1.global_variables_initializer()
+    saver = tf.compat.v1.train.Saver()
 
-    with tf.Session() as sess:
+    with tf.compat.v1.Session() as sess:
         sess.run(init)
         for epoch in range(training_epochs):  #
             # Loop over all batches
@@ -74,14 +67,13 @@ def training(path,learning_rate,training_epochs,train_dropout_prob,hidden_dim,fc
             for i in range(number_train_batches):  #
                 # batch_xs is [number of patients x sequence length x input dimensionality]
                 batch_xs, batch_ys, batch_ts = data_train_batches[i], labels_train_batches[i], \
-                                                         elapsed_train_batches[i]
+                                               elapsed_train_batches[i]
                 batch_ts = np.reshape(batch_ts, [batch_ts.shape[0], batch_ts.shape[2]])
-                sess.run(optimizer,feed_dict={lstm.input: batch_xs, lstm.labels: batch_ys,\
-                                              lstm.keep_prob:train_dropout_prob, lstm.time:batch_ts})
-
+                sess.run(optimizer, feed_dict={lstm.input: batch_xs, lstm.labels: batch_ys, \
+                                               lstm.keep_prob: train_dropout_prob, lstm.time: batch_ts})
 
         print("Training is over!")
-        saver.save(sess,model_path)
+        saver.save(sess, model_path)
 
         Y_pred = []
         Y_true = []
@@ -89,12 +81,12 @@ def training(path,learning_rate,training_epochs,train_dropout_prob,hidden_dim,fc
         Logits = []
         for i in range(number_train_batches):  #
             batch_xs, batch_ys, batch_ts = data_train_batches[i], labels_train_batches[i], \
-                                                     elapsed_train_batches[i]
+                                           elapsed_train_batches[i]
             batch_ts = np.reshape(batch_ts, [batch_ts.shape[0], batch_ts.shape[2]])
             c_train, y_pred_train, y_train, logits_train, labels_train = sess.run(lstm.get_cost_acc(), feed_dict={
                 lstm.input:
-                                                                                                       batch_xs, lstm.labels: batch_ys, \
-                                           lstm.keep_prob: train_dropout_prob, lstm.time: batch_ts})
+                    batch_xs, lstm.labels: batch_ys, \
+                lstm.keep_prob: train_dropout_prob, lstm.time: batch_ts})
 
             if i > 0:
                 Y_true = np.concatenate([Y_true, y_train], 0)
@@ -115,15 +107,15 @@ def training(path,learning_rate,training_epochs,train_dropout_prob,hidden_dim,fc
         print("Train AUC Macro = {:.3f}".format(total_auc_macro))
 
 
-def testing(path,hidden_dim,fc_dim,key,model_path):
+def testing(path, hidden_dim, fc_dim, key, model_path):
     path_string = path + '/data_test.pkl'
-    data_test_batches = load_pkl(path_string)
+    data_test_batches = pd.read_pickle(path_string)
 
     path_string = path + '/elapsed_test.pkl'
-    elapsed_test_batches = load_pkl(path_string)
+    elapsed_test_batches = pd.read_pickle(path_string)
 
     path_string = path + '/label_test.pkl'
-    labels_test_batches = load_pkl(path_string)
+    labels_test_batches = pd.read_pickle(path_string)
 
     path_string = path + '/hidden_ind_test.pkl'
 
@@ -137,8 +129,8 @@ def testing(path,hidden_dim,fc_dim,key,model_path):
     test_dropout_prob = 1.0
     lstm_load = TLSTM(input_dim, output_dim, hidden_dim, fc_dim, key)
 
-    saver = tf.train.Saver()
-    with tf.Session() as sess:
+    saver = tf.compat.v1.train.Saver()
+    with tf.compat.v1.Session() as sess:
         saver.restore(sess, model_path)
 
         Y_true = []
@@ -147,12 +139,12 @@ def testing(path,hidden_dim,fc_dim,key,model_path):
         Labels = []
         for i in range(number_test_batches):
             batch_xs, batch_ys, batch_ts = data_test_batches[i], labels_test_batches[i], \
-                                                     elapsed_test_batches[i]
+                                           elapsed_test_batches[i]
             batch_ts = np.reshape(batch_ts, [batch_ts.shape[0], batch_ts.shape[2]])
             c_test, y_pred_test, y_test, logits_test, labels_test = sess.run(lstm_load.get_cost_acc(),
                                                                              feed_dict={lstm_load.input: batch_xs,
-                                                                                        lstm_load.labels: batch_ys,\
-                                                                                        lstm_load.time: batch_ts,\
+                                                                                        lstm_load.labels: batch_ys, \
+                                                                                        lstm_load.time: batch_ts, \
                                                                                         lstm_load.keep_prob: test_dropout_prob})
             if i > 0:
                 Y_true = np.concatenate([Y_true, y_test], 0)
@@ -191,9 +183,5 @@ def main(argv):
         testing(path, hidden_dim, fc_dim, training_mode, model_path)
 
 
-
-
-
 if __name__ == "__main__":
-   main(sys.argv[1:])
-
+    main(sys.argv[1:])
