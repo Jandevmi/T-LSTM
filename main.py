@@ -40,13 +40,13 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
     elapsed_train_batches = pd.read_pickle(path + '/elapsed_train.pkl')
     labels_train_batches = pd.read_pickle(path + '/label_train.pkl')
 
-    data_test_batches = pd.read_pickle(path + '/data_test.pkl')
-    elapsed_test_batches = pd.read_pickle(path + '/elapsed_test.pkl')
-    labels_test_batches = pd.read_pickle(path + '/label_test.pkl')
+    data_val_batches = pd.read_pickle(path + '/data_test.pkl')
+    elapsed_val_batches = pd.read_pickle(path + '/elapsed_test.pkl')
+    labels_val_batches = pd.read_pickle(path + '/label_test.pkl')
 
     print("Train data is loaded!")
     number_train_batches = len(data_train_batches)
-    number_test_batches = len(data_test_batches)
+    number_val_batches = len(data_val_batches)
     input_dim = data_train_batches[0].shape[2]
     output_dim = labels_train_batches[0].shape[1]
 
@@ -63,7 +63,8 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
         best_f1 = 0
         best_sess = sess
         best_epoch = 0
-        for epoch in range(training_epochs):  #
+        batches = 0
+        for epoch in range(training_epochs): 
             # Loop over all batches
             f1 = 0
             total_cost = 100
@@ -76,40 +77,38 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
                                                    lstm.keep_prob: train_dropout_prob, lstm.time: batch_ts})
                 total_cost += loss
 
-            print("Loss: {:.3f}".format(total_cost), end='')
+            print("Loss: {:.3f}".format(total_cost))
 
             Y_pred = []
             Y_true = []
             Labels = []
             Logits = []
-            for i in range(number_test_batches):  #
-                batch_xs, batch_ys, batch_ts = data_test_batches[i], labels_test_batches[i], \
-                                               elapsed_test_batches[i]
+            for i in range(number_val_batches): 
+                batch_xs, batch_ys, batch_ts = data_val_batches[i], labels_val_batches[i], \
+                                               elapsed_val_batches[i]
                 batch_ts = np.reshape(batch_ts, [batch_ts.shape[0], batch_ts.shape[2]])
-                c_train, y_pred_train, y_train, logits_train, labels_train = sess.run(
+                c_val, y_pred_val, y_val, logits_val, labels_val = sess.run(
                     lstm.get_cost_acc(),
                     feed_dict={lstm.input: batch_xs, lstm.labels: batch_ys,
                                lstm.keep_prob: train_dropout_prob, lstm.time: batch_ts})
 
                 if i > 0:
-                    Y_true = np.concatenate([Y_true, y_train], 0)
-                    Y_pred = np.concatenate([Y_pred, y_pred_train], 0)
-                    Labels = np.concatenate([Labels, labels_train], 0)
-                    Logits = np.concatenate([Logits, logits_train], 0)
+                    Y_true = np.concatenate([Y_true, y_val], 0)
+                    Y_pred = np.concatenate([Y_pred, y_pred_val], 0)
+                    Labels = np.concatenate([Labels, labels_val], 0)
+                    Logits = np.concatenate([Logits, logits_val], 0)
                 else:
-                    Y_true = y_train
-                    Y_pred = y_pred_train
-                    Labels = labels_train
-                    Logits = logits_train
-                f1_batch = f1_score(Y_true, Y_pred)
-                f1 += f1_batch
-                print("Y_true")
-                print(Y_true)
-                print('Y_pred')
-                print(Y_pred)
-                print("F1: " + str(f1_batch))
+                    Y_true = y_val
+                    Y_pred = y_pred_val
+                    Labels = labels_val
+                    Logits = logits_val
+                    
+            f1 = f1_score(Y_true, Y_pred, average='macro')
+            print("Y_true")
+            print(Y_true)
+            print('Y_pred')
+            print(Y_pred)
 
-            f1 = f1 / number_train_batches
             print(" F1: {:.3f}".format(f1), end='')
             if f1 > best_f1:
                 print(' better epoch: ' + str(epoch))
@@ -125,6 +124,7 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
 
         print("Training is over!")
         saver.save(best_sess, model_path)
+        saver.restore(best_sess, model_path)
 
         Y_pred = []
         Y_true = []
@@ -153,7 +153,7 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
         total_acc = accuracy_score(Y_true, Y_pred)
         total_auc = roc_auc_score(Labels, Logits, average='micro')
         total_auc_macro = roc_auc_score(Labels, Logits, average='macro')
-        f1 = f1_score(Y_true, Y_pred)
+        f1 = f1_score(Y_true, Y_pred, average='macro')
         print("Y_true")
         print(Y_true)
         print('Y_pred')
@@ -215,6 +215,12 @@ def testing(path, hidden_dim, fc_dim, key, model_path):
                 Logits = logits_test
         total_auc = roc_auc_score(Labels, Logits, average='micro')
         total_auc_macro = roc_auc_score(Labels, Logits, average='macro')
+        f1 = f1_score(Y_true, Y_pred, average='macro')
+        print("Y_true")
+        print(Y_true)
+        print('Y_pred')
+        print(Y_pred)
+        print("Train F1 = {:.3f}".format(f1))
         total_acc = accuracy_score(Y_true, Y_pred)
         print("Test Accuracy = {:.3f}".format(total_acc))
         print("Test AUC Micro = {:.3f}".format(total_auc))
