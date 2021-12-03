@@ -44,8 +44,6 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
     path_string = path + '/label_train.pkl'
     labels_train_batches = pd.read_pickle(path_string)
 
-    path_string = path + '/hidden_ind_train.pkl'
-    hidden_ind_train = pd.read_pickle(path_string)
 
     number_train_batches = len(data_train_batches)
     print("Train data is loaded!")
@@ -142,7 +140,6 @@ def testing(path, hidden_dim, fc_dim, key, model_path):
     path_string = path + '/label_test.pkl'
     labels_test_batches = pd.read_pickle(path_string)
 
-    path_string = path + '/hidden_ind_test.pkl'
 
     number_test_batches = len(data_test_batches)
 
@@ -185,7 +182,7 @@ def testing(path, hidden_dim, fc_dim, key, model_path):
         total_acc = accuracy_score(Y_true, Y_pred)
         total_auc = roc_auc_score(Labels, Logits, average='micro')
         total_auc_macro = roc_auc_score(Labels, Logits, average='macro')
-        f1 = f1_score(Y_true, Y_pred)
+        f1 = f1_score(Y_true, Y_pred, average='macro')
         print("Y_true")
         print(Y_true)
         print('Y_pred')
