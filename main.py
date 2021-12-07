@@ -85,8 +85,8 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
             else:
                 print(' Epoch worse')
 
-            if best_epoch + 20 == epoch:
-                print('Break!')
+            if best_epoch + 10 == epoch:
+                print('Break!', end=' ')
                 break
 
         print("Training is over!")
