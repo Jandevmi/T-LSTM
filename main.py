@@ -40,9 +40,9 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
     elapsed_train_batches = pd.read_pickle(path + '/elapsed_train.pkl')
     labels_train_batches = pd.read_pickle(path + '/label_train.pkl')
 
-    data_val_batches = pd.read_pickle(path + '/data_test.pkl')
-    elapsed_val_batches = pd.read_pickle(path + '/elapsed_test.pkl')
-    labels_val_batches = pd.read_pickle(path + '/label_test.pkl')
+    data_val_batches = pd.read_pickle(path + '/data_valid.pkl')
+    elapsed_val_batches = pd.read_pickle(path + '/elapsed_valid.pkl')
+    labels_val_batches = pd.read_pickle(path + '/label_valid.pkl')
 
     print("Train data is loaded!")
     number_train_batches = len(data_train_batches)
@@ -63,11 +63,10 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
         best_f1 = 0
         best_sess = sess
         best_epoch = 0
-        batches = 0
         for epoch in range(training_epochs): 
             # Loop over all batches
             f1 = 0
-            total_cost = 100
+            total_cost = 0
             for i in range(number_train_batches):  #
                 # batch_xs is [number of patients x sequence length x input dimensionality]
                 batch_xs, batch_ys, batch_ts = data_train_batches[i], labels_train_batches[i], \
