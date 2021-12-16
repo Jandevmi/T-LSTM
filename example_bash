@@ -1,2 +1,2 @@
-python main.py 1 "/research/prip-baytasin/Synth_EHR/Split0" 1e-3 50 1.0 128 64 "/research/prip-baytasin/T-LSTM-master/TLSTM/final_model"
-python main.py 0 "/research/prip-baytasin/Synth_EHR/Split0" 128 64 "/research/prip-baytasin/T-LSTM-master/TLSTM/final_model"
+python main.py 1 "/home/frickja/Charite_Project-master/files/TLSTM_features/3_split" 1e-3 50 0.5 128 64 "/home/frickja/Charite_Project-master/Modeling/TLSTM_Model/"
+python main.py 0 "/home/frickja/Charite_Project-master/files/TLSTM_features/3_split" 128 64 "/home/frickja/Charite_Project-master/Modeling/TLSTM_Model/"
