@@ -18,6 +18,8 @@ import pandas as pd
 from sklearn.metrics import f1_score
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import roc_auc_score
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import classification_report
 import sys
 np.set_printoptions(threshold=sys.maxsize)
 import math
@@ -76,7 +78,7 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
                                                    lstm.keep_prob: train_dropout_prob, lstm.time: batch_ts})
                 total_cost += loss
 
-            print("Loss: {:.3f}".format(total_cost))
+            print("Training Loss: {:.3f}".format(total_cost))
 
             Y_pred = []
             Y_true = []
@@ -103,12 +105,9 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
                     Logits = logits_val
                     
             f1 = f1_score(Y_true, Y_pred, average='macro')
-            print("Y_true")
-            print(Y_true)
-            print('Y_pred')
-            print(Y_pred)
+            print("Validation F1: {:.3f}".format(f1), end='')
+            print(confusion_matrix(Y_true, Y_pred))
 
-            print(" F1: {:.3f}".format(f1), end='')
             if f1 > best_f1:
                 print(' better epoch: ' + str(epoch))
                 best_f1 = f1
@@ -149,18 +148,10 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
                 Labels = labels_train
                 Logits = logits_train
 
-        total_acc = accuracy_score(Y_true, Y_pred)
-        total_auc = roc_auc_score(Labels, Logits, average='micro')
-        total_auc_macro = roc_auc_score(Labels, Logits, average='macro')
-        f1 = f1_score(Y_true, Y_pred, average='macro')
-        print("Y_true")
-        print(Y_true)
-        print('Y_pred')
-        print(Y_pred)
-        print("Train F1 = {:.3f}".format(f1))
-        print("Train Accuracy = {:.3f}".format(total_acc))
-        print("Train AUC = {:.3f}".format(total_auc))
-        print("Train AUC Macro = {:.3f}".format(total_auc_macro))
+        target_names = ['Success', 'Graft Failure']
+        print(classification_report(Y_true, Y_pred, target_names=target_names))
+        print(confusion_matrix(Y_true, Y_pred))
+
 
 
 def testing(path, hidden_dim, fc_dim, key, model_path):
@@ -212,18 +203,12 @@ def testing(path, hidden_dim, fc_dim, key, model_path):
                 Y_pred = y_pred_test
                 Labels = labels_test
                 Logits = logits_test
-        total_auc = roc_auc_score(Labels, Logits, average='micro')
-        total_auc_macro = roc_auc_score(Labels, Logits, average='macro')
-        f1 = f1_score(Y_true, Y_pred, average='macro')
-        print("Y_true")
-        print(Y_true)
-        print('Y_pred')
-        print(Y_pred)
-        print("Train F1 = {:.3f}".format(f1))
-        total_acc = accuracy_score(Y_true, Y_pred)
-        print("Test Accuracy = {:.3f}".format(total_acc))
-        print("Test AUC Micro = {:.3f}".format(total_auc))
-        print("Test AUC Macro = {:.3f}".format(total_auc_macro))
+
+        
+        target_names = ['Success', 'Graft Failure']
+        print(classification_report(Y_true, Y_pred, target_names=target_names))
+        print(confusion_matrix(Y_true, Y_pred))
+
 
 
 def main(argv):
