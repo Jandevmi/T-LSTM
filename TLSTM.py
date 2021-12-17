@@ -152,7 +152,7 @@ class TLSTM(object):
 
     def get_cost_acc(self):
         logits = self.get_outputs()
-        cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.labels, logits=logits))
+        cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.labels, logits=logits))
         #pos_weight = 2#tf.constant([0.985, 0.0185])
         #cross_entropy = tf.reduce_mean(
         #    input_tensor=tf.nn.weighted_cross_entropy_with_logits(
@@ -170,7 +170,7 @@ class TLSTM(object):
 
         # T = tf.multiply(self.wt, t) + self.bt
 
-        T = tf.div(c1, tf.log(t + c2), name='Log_elapse_time')
+        T = tf.math.divide(c1, tf.math.log(t + c2), name='Log_elapse_time')
 
         Ones = tf.ones([1, self.hidden_dim], dtype=tf.float32)
 

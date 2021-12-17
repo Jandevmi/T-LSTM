@@ -105,23 +105,24 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
                     Logits = logits_val
                     
             f1 = f1_score(Y_true, Y_pred, average='macro')
-            print("Validation F1: {:.3f}".format(f1), end='')
+            print("Validation F1:  {:.3f}".format(f1))
             print(confusion_matrix(Y_true, Y_pred))
+            
 
             if f1 > best_f1:
-                print(' better epoch: ' + str(epoch))
+                print('better epoch: ' + str(epoch))
                 best_f1 = f1
                 best_sess = sess
                 best_epoch = epoch
+                saver.save(sess, model_path)
             else:
-                print(' Epoch worse')
+                print('Epoch worse')
 
-            if best_epoch + 10 == epoch:
+            if (best_epoch + 5 == epoch) & (total_cost < 10):
                 print('Break!')
                 break
-
+            print()
         print("Training is over!")
-        saver.save(best_sess, model_path)
         saver.restore(best_sess, model_path)
 
         Y_pred = []
