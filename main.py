@@ -118,7 +118,7 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
             else:
                 print('Epoch worse')
 
-            if (best_epoch + 5 == epoch) & (total_cost < 10):
+            if (best_epoch + 8 == epoch) & (total_cost < 10):
                 print('Break!')
                 break
             print()
