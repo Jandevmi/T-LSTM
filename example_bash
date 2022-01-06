@@ -1,2 +1,2 @@
-python main.py 1 "/home/frickja/Charite_Project-master/files/TLSTM_features/3_split" 1e-3 100 0.5 128 64 "/home/frickja/Charite_Project-master/Modeling/TLSTM_Model/"
-python main.py 0 "/home/frickja/Charite_Project-master/files/TLSTM_features/3_split" 128 64 "/home/frickja/Charite_Project-master/Modeling/TLSTM_Model/"
+python main.py 1 "/home/frickja/Charite_Project-master/files/TLSTM_features/long_term" 1e-3 100 0.5 128 64 "/home/frickja/Charite_Project-master/Modeling/TLSTM_Model/"
+python main.py 0 "/home/frickja/Charite_Project-master/files/TLSTM_features/long_term" 128 64 "/home/frickja/Charite_Project-master/Modeling/TLSTM_Model/"

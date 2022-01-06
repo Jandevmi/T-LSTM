@@ -150,22 +150,18 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
                 Logits = logits_train
 
         target_names = ['Success', 'Graft Failure']
+        total_auc_macro = roc_auc_score(Labels, Logits, average='macro')
         print(classification_report(Y_true, Y_pred, target_names=target_names))
+        print("Train AUC Macro = {:.3f}".format(total_auc_macro))
         print(confusion_matrix(Y_true, Y_pred))
 
 
 
 def testing(path, hidden_dim, fc_dim, key, model_path):
-    path_string = path + '/data_test.pkl'
-    data_test_batches = pd.read_pickle(path_string)
-
-    path_string = path + '/elapsed_test.pkl'
-    elapsed_test_batches = pd.read_pickle(path_string)
-
-    path_string = path + '/label_test.pkl'
-    labels_test_batches = pd.read_pickle(path_string)
-
-    path_string = path + '/hidden_ind_test.pkl'
+    
+    data_test_batches = pd.read_pickle(path + '/data_test.pkl')
+    elapsed_test_batches = pd.read_pickle(path + '/elapsed_test.pkl')
+    labels_test_batches = pd.read_pickle(path + '/label_test.pkl')
 
     number_test_batches = len(data_test_batches)
 
@@ -205,9 +201,10 @@ def testing(path, hidden_dim, fc_dim, key, model_path):
                 Labels = labels_test
                 Logits = logits_test
 
-        
+        total_auc_macro = roc_auc_score(Labels, Logits, average='macro')
         target_names = ['Success', 'Graft Failure']
         print(classification_report(Y_true, Y_pred, target_names=target_names))
+        print("Train AUC Macro = {:.3f}".format(total_auc_macro))
         print(confusion_matrix(Y_true, Y_pred))
 
 
