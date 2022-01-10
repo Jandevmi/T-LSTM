@@ -21,6 +21,8 @@ from sklearn.metrics import roc_auc_score
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import classification_report
 import sys
+import asyncio
+
 np.set_printoptions(threshold=sys.maxsize)
 import math
 
@@ -36,15 +38,14 @@ def convert_one_hot(label_list):
     return label_list
 
 
-def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_dim, fc_dim, key, model_path):
-
+async def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_dim, fc_dim, key, model_path):
     data_train_batches = pd.read_pickle(path + '/data_train.pkl')
     elapsed_train_batches = pd.read_pickle(path + '/elapsed_train.pkl')
     labels_train_batches = pd.read_pickle(path + '/label_train.pkl')
 
-    data_val_batches = pd.read_pickle(path + '/data_valid.pkl')
-    elapsed_val_batches = pd.read_pickle(path + '/elapsed_valid.pkl')
-    labels_val_batches = pd.read_pickle(path + '/label_valid.pkl')
+    data_val_batches = pd.read_pickle(path + '/data_test.pkl')
+    elapsed_val_batches = pd.read_pickle(path + '/elapsed_test.pkl')
+    labels_val_batches = pd.read_pickle(path + '/label_test.pkl')
 
     print("Train data is loaded!")
     number_train_batches = len(data_train_batches)
@@ -65,7 +66,7 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
         best_f1 = 0
         best_sess = sess
         best_epoch = 0
-        for epoch in range(training_epochs): 
+        for epoch in range(training_epochs):
             # Loop over all batches
             f1 = 0
             total_cost = 0
@@ -75,7 +76,8 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
                                                elapsed_train_batches[i]
                 batch_ts = np.reshape(batch_ts, [batch_ts.shape[0], batch_ts.shape[2]])
                 _, loss = sess.run([optimizer, cross_entropy], feed_dict={lstm.input: batch_xs, lstm.labels: batch_ys,
-                                                   lstm.keep_prob: train_dropout_prob, lstm.time: batch_ts})
+                                                                          lstm.keep_prob: train_dropout_prob,
+                                                                          lstm.time: batch_ts})
                 total_cost += loss
 
             print("Training Loss: {:.3f}".format(total_cost))
@@ -84,30 +86,38 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
             Y_true = []
             Labels = []
             Logits = []
-            for i in range(number_val_batches): 
+            tasks = []
+            for i in range(number_val_batches):
                 batch_xs, batch_ys, batch_ts = data_val_batches[i], labels_val_batches[i], \
                                                elapsed_val_batches[i]
                 batch_ts = np.reshape(batch_ts, [batch_ts.shape[0], batch_ts.shape[2]])
-                c_val, y_pred_val, y_val, logits_val, labels_val = sess.run(
+                tasks.append(asyncio.create_task(asyncio.coroutine(sess.run)(
                     lstm.get_cost_acc(),
                     feed_dict={lstm.input: batch_xs, lstm.labels: batch_ys,
-                               lstm.keep_prob: train_dropout_prob, lstm.time: batch_ts})
+                               lstm.keep_prob: train_dropout_prob, lstm.time: batch_ts})))
 
-                if i > 0:
-                    Y_true = np.concatenate([Y_true, y_val], 0)
-                    Y_pred = np.concatenate([Y_pred, y_pred_val], 0)
-                    Labels = np.concatenate([Labels, labels_val], 0)
-                    Logits = np.concatenate([Logits, logits_val], 0)
+            results = await asyncio.gather(*tasks)
+
+            for r in results:
+                cost = r[0]
+                y_pred_val = r[1]
+                y_val = r[2]
+                logits_val = r[3]
+                labels_val = r[4]
+                if np.size(Y_true) > 0:
+                    Y_true = np.concatenate([Y_true, y_val], axis=0)
+                    Y_pred = np.concatenate([Y_pred, y_pred_val], axis=0)
+                    Labels = np.concatenate([Labels, labels_val], axis=0)
+                    Logits = np.concatenate([Logits, logits_val], axis=0)
                 else:
                     Y_true = y_val
                     Y_pred = y_pred_val
                     Labels = labels_val
                     Logits = logits_val
-                    
+
             f1 = f1_score(Y_true, Y_pred, average='macro')
             print("Validation F1:  {:.3f}".format(f1))
             print(confusion_matrix(Y_true, Y_pred))
-            
 
             if f1 > best_f1:
                 print('better epoch: ' + str(epoch))
@@ -118,7 +128,7 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
             else:
                 print('Epoch worse')
 
-            if (best_epoch + 8 == epoch) & (total_cost < 10):
+            if (best_epoch + 15 == epoch) & (total_cost < 10):
                 print('Break!')
                 break
             print()
@@ -135,8 +145,7 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
             batch_ts = np.reshape(batch_ts, [batch_ts.shape[0], batch_ts.shape[2]])
             c_train, y_pred_train, y_train, logits_train, labels_train = sess.run(lstm.get_cost_acc(), feed_dict={
                 lstm.input:
-                    batch_xs, lstm.labels: batch_ys, \
-                lstm.keep_prob: train_dropout_prob, lstm.time: batch_ts})
+                    batch_xs, lstm.labels: batch_ys, lstm.keep_prob: train_dropout_prob, lstm.time: batch_ts})
 
             if i > 0:
                 Y_true = np.concatenate([Y_true, y_train], 0)
@@ -156,9 +165,7 @@ def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_di
         print(confusion_matrix(Y_true, Y_pred))
 
 
-
 def testing(path, hidden_dim, fc_dim, key, model_path):
-    
     data_test_batches = pd.read_pickle(path + '/data_test.pkl')
     elapsed_test_batches = pd.read_pickle(path + '/elapsed_test.pkl')
     labels_test_batches = pd.read_pickle(path + '/label_test.pkl')
@@ -208,7 +215,6 @@ def testing(path, hidden_dim, fc_dim, key, model_path):
         print(confusion_matrix(Y_true, Y_pred))
 
 
-
 def main(argv):
     training_mode = int(sys.argv[1])
     path = str(sys.argv[2])
@@ -220,7 +226,8 @@ def main(argv):
         hidden_dim = int(sys.argv[6])
         fc_dim = int(sys.argv[7])
         model_path = str(sys.argv[8])
-        training(path, learning_rate, training_epochs, dropout_prob, hidden_dim, fc_dim, training_mode, model_path)
+        asyncio.run(
+            training(path, learning_rate, training_epochs, dropout_prob, hidden_dim, fc_dim, training_mode, model_path))
     else:
         hidden_dim = int(sys.argv[3])
         fc_dim = int(sys.argv[4])
