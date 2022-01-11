@@ -25,18 +25,7 @@ import asyncio
 
 np.set_printoptions(threshold=sys.maxsize)
 import math
-
 from TLSTM import TLSTM
-
-
-def convert_one_hot(label_list):
-    for i in range(len(label_list)):
-        sec_col = np.ones([label_list[i].shape[0], label_list[i].shape[1], 1])
-        label_list[i] = np.reshape(label_list[i], [label_list[i].shape[0], label_list[i].shape[1], 1])
-        sec_col -= label_list[i]
-        label_list[i] = np.concatenate([label_list[i], sec_col], 2)
-    return label_list
-
 
 async def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_dim, fc_dim, key, model_path):
     data_train_batches = pd.read_pickle(path + '/data_train.pkl')
@@ -63,14 +52,12 @@ async def training(path, learning_rate, training_epochs, train_dropout_prob, hid
 
     with tf.compat.v1.Session() as sess:
         sess.run(init)
-        best_f1 = 0
+        best_f1, best_epoch = 0, 0
         best_sess = sess
-        best_epoch = 0
         for epoch in range(training_epochs):
             # Loop over all batches
-            f1 = 0
             total_cost = 0
-            for i in range(number_train_batches):  #
+            for i in range(number_train_batches):
                 # batch_xs is [number of patients x sequence length x input dimensionality]
                 batch_xs, batch_ys, batch_ts = data_train_batches[i], labels_train_batches[i], \
                                                elapsed_train_batches[i]
@@ -79,45 +66,37 @@ async def training(path, learning_rate, training_epochs, train_dropout_prob, hid
                                                                           lstm.keep_prob: train_dropout_prob,
                                                                           lstm.time: batch_ts})
                 total_cost += loss
-
             print("Training Loss: {:.3f}".format(total_cost))
 
-            Y_pred = []
-            Y_true = []
-            Labels = []
-            Logits = []
-            tasks = []
+            tasks, y_pred, y_true, labels, logits = [], [], [], [], []
             for i in range(number_val_batches):
                 batch_xs, batch_ys, batch_ts = data_val_batches[i], labels_val_batches[i], \
                                                elapsed_val_batches[i]
                 batch_ts = np.reshape(batch_ts, [batch_ts.shape[0], batch_ts.shape[2]])
-                tasks.append(asyncio.create_task(asyncio.coroutine(sess.run)(
-                    lstm.get_cost_acc(),
-                    feed_dict={lstm.input: batch_xs, lstm.labels: batch_ys,
-                               lstm.keep_prob: train_dropout_prob, lstm.time: batch_ts})))
-
+                tasks.append(
+                    asyncio.create_task(
+                        asyncio.coroutine(sess.run)(
+                            lstm.get_cost_acc(),
+                            feed_dict={lstm.input: batch_xs, lstm.labels: batch_ys,
+                                       lstm.keep_prob: train_dropout_prob, lstm.time: batch_ts})))
             results = await asyncio.gather(*tasks)
 
             for r in results:
-                cost = r[0]
-                y_pred_val = r[1]
-                y_val = r[2]
-                logits_val = r[3]
-                labels_val = r[4]
-                if np.size(Y_true) > 0:
-                    Y_true = np.concatenate([Y_true, y_val], axis=0)
-                    Y_pred = np.concatenate([Y_pred, y_pred_val], axis=0)
-                    Labels = np.concatenate([Labels, labels_val], axis=0)
-                    Logits = np.concatenate([Logits, logits_val], axis=0)
+                cost, y_pred_val, y_val, logits_val, labels_val = r[0], r[1], r[2], r[3], r[4]
+                if np.size(y_true) > 0:
+                    y_true = np.concatenate([y_true, y_val], axis=0)
+                    y_pred = np.concatenate([y_pred, y_pred_val], axis=0)
+                    labels = np.concatenate([labels, labels_val], axis=0)
+                    logits = np.concatenate([logits, logits_val], axis=0)
                 else:
-                    Y_true = y_val
-                    Y_pred = y_pred_val
-                    Labels = labels_val
-                    Logits = logits_val
+                    y_true = y_val
+                    y_pred = y_pred_val
+                    labels = labels_val
+                    logits = logits_val
 
-            f1 = f1_score(Y_true, Y_pred, average='macro')
+            f1 = f1_score(y_true, y_pred, average='macro')
             print("Validation F1:  {:.3f}".format(f1))
-            print(confusion_matrix(Y_true, Y_pred))
+            print(confusion_matrix(y_true, y_pred))
 
             if f1 > best_f1:
                 print('better epoch: ' + str(epoch))
@@ -135,34 +114,32 @@ async def training(path, learning_rate, training_epochs, train_dropout_prob, hid
         print("Training is over!")
         saver.restore(best_sess, model_path)
 
-        Y_pred = []
-        Y_true = []
-        Labels = []
-        Logits = []
-        for i in range(number_train_batches):  #
-            batch_xs, batch_ys, batch_ts = data_train_batches[i], labels_train_batches[i], \
-                                           elapsed_train_batches[i]
+        y_pred, y_true, labels, logits = [], [], [], []
+        for i in range(number_train_batches):
+            batch_xs, batch_ys, batch_ts = data_train_batches[i], labels_train_batches[i], elapsed_train_batches[i]
             batch_ts = np.reshape(batch_ts, [batch_ts.shape[0], batch_ts.shape[2]])
-            c_train, y_pred_train, y_train, logits_train, labels_train = sess.run(lstm.get_cost_acc(), feed_dict={
-                lstm.input:
-                    batch_xs, lstm.labels: batch_ys, lstm.keep_prob: train_dropout_prob, lstm.time: batch_ts})
+            c_train, y_pred_train, y_train, logits_train, labels_train = sess.run(lstm.get_cost_acc(),
+                                                                                  feed_dict={lstm.input: batch_xs,
+                                                                                             lstm.labels: batch_ys,
+                                                                                             lstm.keep_prob: train_dropout_prob,
+                                                                                             lstm.time: batch_ts})
 
             if i > 0:
-                Y_true = np.concatenate([Y_true, y_train], 0)
-                Y_pred = np.concatenate([Y_pred, y_pred_train], 0)
-                Labels = np.concatenate([Labels, labels_train], 0)
-                Logits = np.concatenate([Logits, logits_train], 0)
+                y_true = np.concatenate([y_true, y_train], 0)
+                y_pred = np.concatenate([y_pred, y_pred_train], 0)
+                labels = np.concatenate([labels, labels_train], 0)
+                logits = np.concatenate([logits, logits_train], 0)
             else:
-                Y_true = y_train
-                Y_pred = y_pred_train
-                Labels = labels_train
-                Logits = logits_train
+                y_true = y_train
+                y_pred = y_pred_train
+                labels = labels_train
+                logits = logits_train
 
         target_names = ['Success', 'Graft Failure']
-        total_auc_macro = roc_auc_score(Labels, Logits, average='macro')
-        print(classification_report(Y_true, Y_pred, target_names=target_names))
+        total_auc_macro = roc_auc_score(labels, logits, average='macro')
+        print(classification_report(y_true, y_pred, target_names=target_names))
         print("Train AUC Macro = {:.3f}".format(total_auc_macro))
-        print(confusion_matrix(Y_true, Y_pred))
+        print(confusion_matrix(y_true, y_pred))
 
 
 def testing(path, hidden_dim, fc_dim, key, model_path):
@@ -194,8 +171,8 @@ def testing(path, hidden_dim, fc_dim, key, model_path):
             batch_ts = np.reshape(batch_ts, [batch_ts.shape[0], batch_ts.shape[2]])
             c_test, y_pred_test, y_test, logits_test, labels_test = sess.run(lstm_load.get_cost_acc(),
                                                                              feed_dict={lstm_load.input: batch_xs,
-                                                                                        lstm_load.labels: batch_ys, \
-                                                                                        lstm_load.time: batch_ts, \
+                                                                                        lstm_load.labels: batch_ys,
+                                                                                        lstm_load.time: batch_ts,
                                                                                         lstm_load.keep_prob: test_dropout_prob})
             if i > 0:
                 Y_true = np.concatenate([Y_true, y_test], 0)
