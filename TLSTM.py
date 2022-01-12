@@ -2,6 +2,8 @@
 # Supervised task implementation
 # Inci M. Baytas, 2017
 import tensorflow as tf
+import sys
+import os
 
 
 class TLSTM(object):
@@ -17,10 +19,11 @@ class TLSTM(object):
     def no_init_bias(self, output_dim, name):
         return tf.compat.v1.get_variable(name,shape=[output_dim])
 
-    def __init__(self, input_dim, output_dim, hidden_dim, fc_dim, train):
+    def __init__(self, input_dim, output_dim, hidden_dim, fc_dim, mode):
 
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
+        self.mode = mode
 
         # [batch size x seq length x input dim]
         self.input = tf.compat.v1.placeholder('float', shape=[None, None, self.input_dim])
@@ -28,7 +31,7 @@ class TLSTM(object):
         self.time = tf.compat.v1.placeholder('float', shape=[None, None])
         self.keep_prob = tf.compat.v1.placeholder(tf.float32)
 
-        if train == 1:
+        if mode == 1:
 
             self.Wi = self.init_weights(self.input_dim, self.hidden_dim, name='Input_Hidden_weight', reg=None)
             self.Ui = self.init_weights(self.hidden_dim, self.hidden_dim, name='Input_State_weight', reg=None)
@@ -137,6 +140,19 @@ class TLSTM(object):
         all_states = packed_hidden_states[:, 0, :, :]
         return all_states
 
+    def save_output(self, state):
+        output = tf.nn.relu(tf.matmul(state, self.Wo) + self.bo)
+        pth = 'C:/Users/Jan/Documents/charite/T-LSTM-master/features/IO.txt'
+        print_op = tf.print(
+            output,
+            summarize=-1,
+            output_stream="file://" + pth
+        )
+        with tf.control_dependencies([print_op]):
+            output = tf.nn.dropout(output, self.keep_prob)
+            output = tf.matmul(output, self.W_softmax) + self.b_softmax
+            return output
+
     def get_output(self, state):
         output = tf.nn.relu(tf.matmul(state, self.Wo) + self.bo)
         output = tf.nn.dropout(output, self.keep_prob)
@@ -145,20 +161,17 @@ class TLSTM(object):
 
     def get_outputs(self):  # Returns all the outputs
         all_states = self.get_states()
-        all_outputs = tf.map_fn(self.get_output, all_states)
-        output = tf.reverse(all_outputs, [0])[0, :, :]  # Compatible with tensorflow 1.2.1
-        # output = tf.reverse(all_outputs, [True, False, False])[0, :, :] # Compatible with tensorflow 0.12.1
+        if self.mode == 2:
+            #open("C:/Users/Jan/Documents/charite/T-LSTM-master/features/IO.txt", 'w').close()
+            all_outputs = tf.map_fn(self.save_output, all_states)
+        else:
+            all_outputs = tf.map_fn(self.get_output, all_states)
+        output = tf.reverse(all_outputs, [0])[0, :, :]
         return output
 
     def get_cost_acc(self):
         logits = self.get_outputs()
         cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.labels, logits=logits))
-        #pos_weight = 2#tf.constant([0.985, 0.0185])
-        #cross_entropy = tf.reduce_mean(
-        #    input_tensor=tf.nn.weighted_cross_entropy_with_logits(
-        #        pos_weight=pos_weight,
-        #        labels=tf.stop_gradient(self.labels),
-        #        logits=logits))
         y_pred = tf.argmax(logits, 1)
         y = tf.argmax(self.labels, 1)
         return cross_entropy, y_pred, y, logits, self.labels

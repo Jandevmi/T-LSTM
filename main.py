@@ -22,10 +22,11 @@ from sklearn.metrics import confusion_matrix
 from sklearn.metrics import classification_report
 import sys
 import asyncio
-
-np.set_printoptions(threshold=sys.maxsize)
 import math
 from TLSTM import TLSTM
+
+np.set_printoptions(threshold=sys.maxsize)
+
 
 async def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_dim, fc_dim, key, model_path):
     data_train_batches = pd.read_pickle(path + '/data_train.pkl')
@@ -55,7 +56,6 @@ async def training(path, learning_rate, training_epochs, train_dropout_prob, hid
         best_f1, best_epoch = 0, 0
         best_sess = sess
         for epoch in range(training_epochs):
-            # Loop over all batches
             total_cost = 0
             for i in range(number_train_batches):
                 # batch_xs is [number of patients x sequence length x input dimensionality]
@@ -153,18 +153,15 @@ def testing(path, hidden_dim, fc_dim, key, model_path):
 
     input_dim = data_test_batches[0].shape[2]
     output_dim = labels_test_batches[0].shape[1]
-
+    open(path + "/features/IO.txt", 'w').close()
     test_dropout_prob = 1.0
-    lstm_load = TLSTM(input_dim, output_dim, hidden_dim, fc_dim, key)
+    lstm_load = TLSTM(input_dim, output_dim, hidden_dim, fc_dim, 2)
 
     saver = tf.compat.v1.train.Saver()
     with tf.compat.v1.Session() as sess:
         saver.restore(sess, model_path)
 
-        Y_true = []
-        Y_pred = []
-        Logits = []
-        Labels = []
+        y_true, y_pred, logits, labels = [], [], [], []
         for i in range(number_test_batches):
             batch_xs, batch_ys, batch_ts = data_test_batches[i], labels_test_batches[i], \
                                            elapsed_test_batches[i]
@@ -175,21 +172,52 @@ def testing(path, hidden_dim, fc_dim, key, model_path):
                                                                                         lstm_load.time: batch_ts,
                                                                                         lstm_load.keep_prob: test_dropout_prob})
             if i > 0:
-                Y_true = np.concatenate([Y_true, y_test], 0)
-                Y_pred = np.concatenate([Y_pred, y_pred_test], 0)
-                Labels = np.concatenate([Labels, labels_test], 0)
-                Logits = np.concatenate([Logits, logits_test], 0)
+                y_true = np.concatenate([y_true, y_test], 0)
+                y_pred = np.concatenate([y_pred, y_pred_test], 0)
+                labels = np.concatenate([labels, labels_test], 0)
+                logits = np.concatenate([logits, logits_test], 0)
             else:
-                Y_true = y_test
-                Y_pred = y_pred_test
-                Labels = labels_test
-                Logits = logits_test
+                y_true = y_test
+                y_pred = y_pred_test
+                labels = labels_test
+                logits = logits_test
 
-        total_auc_macro = roc_auc_score(Labels, Logits, average='macro')
+        total_auc_macro = roc_auc_score(labels, logits, average='macro')
         target_names = ['Success', 'Graft Failure']
-        print(classification_report(Y_true, Y_pred, target_names=target_names))
+        print(classification_report(y_true, y_pred, target_names=target_names))
         print("Train AUC Macro = {:.3f}".format(total_auc_macro))
-        print(confusion_matrix(Y_true, Y_pred))
+        print(confusion_matrix(y_true, y_pred))
+
+
+def extract_embeddings(path, hidden_dim, fc_dim, key, model_path):
+    data_batches = pd.read_pickle(path + '/data_all.pkl')
+    elapsed_batches = pd.read_pickle(path + '/elapsed_all.pkl')
+    labels_batches = pd.read_pickle(path + '/label_all.pkl')
+
+    # Delete old features
+    open(path + "/features/IO.txt", 'w').close()
+
+    number_test_batches = len(data_test_batches)
+
+    print("Test data is loaded!")
+
+    input_dim = data_batches[0].shape[2]
+    output_dim = labels_batches[0].shape[1]
+
+    test_dropout_prob = 1.0
+    lstm_load = TLSTM(input_dim, output_dim, hidden_dim, fc_dim, key)
+
+    saver = tf.compat.v1.train.Saver()
+    with tf.compat.v1.Session() as sess:
+        saver.restore(sess, model_path)
+
+        for i in range(number_test_batches):
+            batch_xs, batch_ys, batch_ts = data_batches[i], labels_batches[i], \
+                                           elapsed_batches[i]
+            batch_ts = np.reshape(batch_ts, [batch_ts.shape[0], batch_ts.shape[2]])
+            sess.run(lstm_load.get_cost_acc(),
+                     feed_dict={lstm_load.input: batch_xs, lstm_load.labels: batch_ys, lstm_load.time: batch_ts,
+                                lstm_load.keep_prob: test_dropout_prob})
 
 
 def main(argv):
@@ -205,11 +233,16 @@ def main(argv):
         model_path = str(sys.argv[8])
         asyncio.run(
             training(path, learning_rate, training_epochs, dropout_prob, hidden_dim, fc_dim, training_mode, model_path))
-    else:
+    elif training_mode == 0:
         hidden_dim = int(sys.argv[3])
         fc_dim = int(sys.argv[4])
         model_path = str(sys.argv[5])
         testing(path, hidden_dim, fc_dim, training_mode, model_path)
+    else:
+        hidden_dim = int(sys.argv[3])
+        fc_dim = int(sys.argv[4])
+        model_path = str(sys.argv[5])
+        extract_embeddings(path, hidden_dim, fc_dim, training_mode, model_path)
 
 
 if __name__ == "__main__":
