@@ -2,6 +2,7 @@
 # Supervised task implementation
 # Inci M. Baytas, 2017
 import tensorflow as tf
+import pdb
 
 
 class TLSTM(object):
@@ -140,6 +141,7 @@ class TLSTM(object):
     def get_output(self, state):
         output = tf.nn.relu(tf.matmul(state, self.Wo) + self.bo)
         output = tf.nn.dropout(output, self.keep_prob)
+        pdb.set_trace()
         output = tf.matmul(output, self.W_softmax) + self.b_softmax
         return output
 

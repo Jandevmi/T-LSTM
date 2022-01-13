@@ -188,7 +188,7 @@ def testing(path, hidden_dim, fc_dim, key, model_path):
         total_auc_macro = roc_auc_score(Labels, Logits, average='macro')
         target_names = ['Success', 'Graft Failure']
         print(classification_report(Y_true, Y_pred, target_names=target_names))
-        print("Train AUC Macro = {:.3f}".format(total_auc_macro))
+        print("Test AUC Macro = {:.3f}".format(total_auc_macro))
         print(confusion_matrix(Y_true, Y_pred))
 
 
