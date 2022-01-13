@@ -30,11 +30,11 @@ np.set_printoptions(threshold=sys.maxsize)
 
 async def training(path, learning_rate, training_epochs, train_dropout_prob, hidden_dim, fc_dim, key, model_path):
     data_train_batches = pd.read_pickle(path + '/data_train.pkl')
-    elapsed_train_batches = pd.read_pickle(path + '/elapsed_train.pkl')
+    elapsed_train_batches = pd.read_pickle(path + '/time_train.pkl')
     labels_train_batches = pd.read_pickle(path + '/label_train.pkl')
 
     data_val_batches = pd.read_pickle(path + '/data_test.pkl')
-    elapsed_val_batches = pd.read_pickle(path + '/elapsed_test.pkl')
+    elapsed_val_batches = pd.read_pickle(path + '/time_test.pkl')
     labels_val_batches = pd.read_pickle(path + '/label_test.pkl')
 
     print("Train data is loaded!")
@@ -144,7 +144,7 @@ async def training(path, learning_rate, training_epochs, train_dropout_prob, hid
 
 def testing(path, hidden_dim, fc_dim, key, model_path):
     data_test_batches = pd.read_pickle(path + '/data_test.pkl')
-    elapsed_test_batches = pd.read_pickle(path + '/elapsed_test.pkl')
+    elapsed_test_batches = pd.read_pickle(path + '/time_test.pkl')
     labels_test_batches = pd.read_pickle(path + '/label_test.pkl')
 
     number_test_batches = len(data_test_batches)
@@ -189,17 +189,17 @@ def testing(path, hidden_dim, fc_dim, key, model_path):
         print(confusion_matrix(y_true, y_pred))
 
 
-def extract_embeddings(path, hidden_dim, fc_dim, key, model_path):
-    data_batches = pd.read_pickle(path + '/data_all.pkl')
-    elapsed_batches = pd.read_pickle(path + '/elapsed_all.pkl')
-    labels_batches = pd.read_pickle(path + '/label_all.pkl')
+def extract_embeddings(path, hidden_dim, fc_dim, key, model_path, embeddings_path):
+    data_batches = pd.read_pickle(path + '/data_train.pkl')
+    elapsed_batches = pd.read_pickle(path + '/time_train.pkl')
+    labels_batches = pd.read_pickle(path + '/label_train.pkl')
 
-    # Delete old features
-    open(path + "/features/IO.txt", 'w').close()
+    # Delete old features, hard coded atm :(
+    open(embeddings_path + "/embeddings.txt", 'w').close()
 
     number_test_batches = len(data_test_batches)
 
-    print("Test data is loaded!")
+    print("Data is loaded!")
 
     input_dim = data_batches[0].shape[2]
     output_dim = labels_batches[0].shape[1]
@@ -238,11 +238,14 @@ def main(argv):
         fc_dim = int(sys.argv[4])
         model_path = str(sys.argv[5])
         testing(path, hidden_dim, fc_dim, training_mode, model_path)
-    else:
+    elif training_mode == 2:
         hidden_dim = int(sys.argv[3])
         fc_dim = int(sys.argv[4])
         model_path = str(sys.argv[5])
-        extract_embeddings(path, hidden_dim, fc_dim, training_mode, model_path)
+        embeddings_path = str(sys.argv[6])
+        extract_embeddings(path, hidden_dim, fc_dim, training_mode, model_path, embeddings_path)
+    else:
+        print("Wrong training mode. Use training_mode: 0=test, 1=training, 2=extract embeddings")
 
 
 if __name__ == "__main__":
