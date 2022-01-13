@@ -205,7 +205,7 @@ def extract_embeddings(path, hidden_dim, fc_dim, key, model_path, embeddings_pat
     output_dim = labels_batches[0].shape[1]
 
     test_dropout_prob = 1.0
-    lstm_load = TLSTM(input_dim, output_dim, hidden_dim, fc_dim, key)
+    lstm_load = TLSTM(input_dim, output_dim, hidden_dim, fc_dim, key, embeddings_path)
 
     saver = tf.compat.v1.train.Saver()
     with tf.compat.v1.Session() as sess:

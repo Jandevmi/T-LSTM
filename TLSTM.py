@@ -7,23 +7,29 @@ import os
 
 
 class TLSTM(object):
-    def init_weights(self, input_dim, output_dim, name, std=0.1, reg=None):
-        return tf.compat.v1.get_variable(name,shape=[input_dim, output_dim],initializer=tf.random_normal_initializer(0.0, std),regularizer = reg)
+    @staticmethod
+    def init_weights(input_dim, output_dim, name, std=0.1, reg=None):
+        return tf.compat.v1.get_variable(name, shape=[input_dim, output_dim],
+                                         initializer=tf.random_normal_initializer(0.0, std), regularizer=reg)
 
-    def init_bias(self, output_dim, name):
-        return tf.compat.v1.get_variable(name,shape=[output_dim],initializer=tf.constant_initializer(1.0))
+    @staticmethod
+    def init_bias(output_dim, name):
+        return tf.compat.v1.get_variable(name, shape=[output_dim], initializer=tf.constant_initializer(1.0))
 
-    def no_init_weights(self, input_dim, output_dim, name):
-        return tf.compat.v1.get_variable(name,shape=[input_dim, output_dim])
+    @staticmethod
+    def no_init_weights(input_dim, output_dim, name):
+        return tf.compat.v1.get_variable(name, shape=[input_dim, output_dim])
 
-    def no_init_bias(self, output_dim, name):
-        return tf.compat.v1.get_variable(name,shape=[output_dim])
+    @staticmethod
+    def no_init_bias(output_dim, name):
+        return tf.compat.v1.get_variable(name, shape=[output_dim])
 
-    def __init__(self, input_dim, output_dim, hidden_dim, fc_dim, mode):
+    def __init__(self, input_dim, output_dim, hidden_dim, fc_dim, mode, embeddings_path=""):
 
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.mode = mode
+        self.embeddings_path = embeddings_path
 
         # [batch size x seq length x input dim]
         self.input = tf.compat.v1.placeholder('float', shape=[None, None, self.input_dim])
@@ -53,12 +59,10 @@ class TLSTM(object):
                                               reg=None)
             self.b_decomp = self.init_bias(self.hidden_dim, name='Decomposition_Hidden_bias_enc')
 
-            self.Wo = self.init_weights(self.hidden_dim, fc_dim, name='Fc_Layer_weight',
-                                        reg=None)  # tf.contrib.layers.l2_regularizer(scale=0.001)
+            self.Wo = self.init_weights(self.hidden_dim, fc_dim, name='Fc_Layer_weight', reg=None)
             self.bo = self.init_bias(fc_dim, name='Fc_Layer_bias')
 
-            self.W_softmax = self.init_weights(fc_dim, output_dim, name='Output_Layer_weight',
-                                               reg=None)  # tf.contrib.layers.l2_regularizer(scale=0.001)
+            self.W_softmax = self.init_weights(fc_dim, output_dim, name='Output_Layer_weight', reg=None)
             self.b_softmax = self.init_bias(output_dim, name='Output_Layer_bias')
 
         else:
@@ -142,7 +146,7 @@ class TLSTM(object):
 
     def save_output(self, state):
         output = tf.nn.relu(tf.matmul(state, self.Wo) + self.bo)
-        pth = 'C:/Users/Jan/Documents/charite/T-LSTM-master/features/IO.txt'
+        pth = self.embeddings_path + "/embeddings.txt"
         print_op = tf.print(
             output,
             summarize=-1,
@@ -162,7 +166,6 @@ class TLSTM(object):
     def get_outputs(self):  # Returns all the outputs
         all_states = self.get_states()
         if self.mode == 2:
-            #open("C:/Users/Jan/Documents/charite/T-LSTM-master/features/IO.txt", 'w').close()
             all_outputs = tf.map_fn(self.save_output, all_states)
         else:
             all_outputs = tf.map_fn(self.get_output, all_states)
