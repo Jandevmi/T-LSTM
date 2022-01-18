@@ -33,9 +33,9 @@ async def training(path, learning_rate, training_epochs, train_dropout_prob, hid
     elapsed_train_batches = pd.read_pickle(path + '/time_train.pkl')
     labels_train_batches = pd.read_pickle(path + '/label_train.pkl')
 
-    data_val_batches = pd.read_pickle(path + '/data_test.pkl')
-    elapsed_val_batches = pd.read_pickle(path + '/time_test.pkl')
-    labels_val_batches = pd.read_pickle(path + '/label_test.pkl')
+    data_val_batches = pd.read_pickle(path + '/data_valid.pkl')
+    elapsed_val_batches = pd.read_pickle(path + '/time_valid.pkl')
+    labels_val_batches = pd.read_pickle(path + '/label_valid.pkl')
 
     print("Train data is loaded!")
     number_train_batches = len(data_train_batches)
@@ -66,7 +66,7 @@ async def training(path, learning_rate, training_epochs, train_dropout_prob, hid
                                                                           lstm.keep_prob: train_dropout_prob,
                                                                           lstm.time: batch_ts})
                 total_cost += loss
-            print("Training Loss: {:.3f}".format(total_cost))
+            print("Training Loss:  {:.3f}".format(total_cost))
 
             tasks, y_pred, y_true, labels, logits = [], [], [], [], []
             for i in range(number_val_batches):
@@ -94,8 +94,10 @@ async def training(path, learning_rate, training_epochs, train_dropout_prob, hid
                     labels = labels_val
                     logits = logits_val
 
-            f1 = f1_score(y_true, y_pred, average='macro')
+            auc_macro = roc_auc_score(labels, logits, average='macro')
+            f1 = f1_score(y_true, y_pred, average="macro")
             print("Validation F1:  {:.3f}".format(f1))
+            print("Validation AUC: {:.3f}".format(auc_macro))
             print(confusion_matrix(y_true, y_pred))
 
             if f1 > best_f1:
@@ -107,7 +109,7 @@ async def training(path, learning_rate, training_epochs, train_dropout_prob, hid
             else:
                 print('Epoch worse')
 
-            if (best_epoch + 15 == epoch) & (total_cost < 10):
+            if (best_epoch + 15 == epoch):# & (total_cost < 15):
                 print('Break!')
                 break
             print()
@@ -153,9 +155,9 @@ def testing(path, hidden_dim, fc_dim, key, model_path):
 
     input_dim = data_test_batches[0].shape[2]
     output_dim = labels_test_batches[0].shape[1]
-    open(path + "/features/IO.txt", 'w').close()
-    test_dropout_prob = 1.0
-    lstm_load = TLSTM(input_dim, output_dim, hidden_dim, fc_dim, 2)
+    
+    test_dropout_prob = 1
+    lstm_load = TLSTM(input_dim, output_dim, hidden_dim, fc_dim, key)
 
     saver = tf.compat.v1.train.Saver()
     with tf.compat.v1.Session() as sess:
@@ -185,7 +187,7 @@ def testing(path, hidden_dim, fc_dim, key, model_path):
         total_auc_macro = roc_auc_score(labels, logits, average='macro')
         target_names = ['Success', 'Graft Failure']
         print(classification_report(y_true, y_pred, target_names=target_names))
-        print("Train AUC Macro = {:.3f}".format(total_auc_macro))
+        print("Test AUC Macro = {:.3f}".format(total_auc_macro))
         print(confusion_matrix(y_true, y_pred))
 
 
@@ -194,10 +196,10 @@ def extract_embeddings(path, hidden_dim, fc_dim, key, model_path, embeddings_pat
     elapsed_batches = pd.read_pickle(path + '/time_train.pkl')
     labels_batches = pd.read_pickle(path + '/label_train.pkl')
 
-    # Delete old features, hard coded atm :(
+    # Delete old features
     open(embeddings_path + "/embeddings.txt", 'w').close()
 
-    number_test_batches = len(data_test_batches)
+    number_batches = len(data_batches)
 
     print("Data is loaded!")
 
@@ -211,7 +213,7 @@ def extract_embeddings(path, hidden_dim, fc_dim, key, model_path, embeddings_pat
     with tf.compat.v1.Session() as sess:
         saver.restore(sess, model_path)
 
-        for i in range(number_test_batches):
+        for i in range(number_batches):
             batch_xs, batch_ys, batch_ts = data_batches[i], labels_batches[i], \
                                            elapsed_batches[i]
             batch_ts = np.reshape(batch_ts, [batch_ts.shape[0], batch_ts.shape[2]])

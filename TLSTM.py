@@ -4,24 +4,24 @@
 import tensorflow as tf
 import sys
 import os
-
+import pdb
 
 class TLSTM(object):
-    @staticmethod
-    def init_weights(input_dim, output_dim, name, std=0.1, reg=None):
+    
+    def init_weights(self, input_dim, output_dim, name, std=0.1, reg=None):
         return tf.compat.v1.get_variable(name, shape=[input_dim, output_dim],
                                          initializer=tf.random_normal_initializer(0.0, std), regularizer=reg)
 
-    @staticmethod
-    def init_bias(output_dim, name):
+    
+    def init_bias(self, output_dim, name):
         return tf.compat.v1.get_variable(name, shape=[output_dim], initializer=tf.constant_initializer(1.0))
 
-    @staticmethod
-    def no_init_weights(input_dim, output_dim, name):
+    
+    def no_init_weights(self, input_dim, output_dim, name):
         return tf.compat.v1.get_variable(name, shape=[input_dim, output_dim])
 
-    @staticmethod
-    def no_init_bias(output_dim, name):
+    
+    def no_init_bias(self, output_dim, name):
         return tf.compat.v1.get_variable(name, shape=[output_dim])
 
     def __init__(self, input_dim, output_dim, hidden_dim, fc_dim, mode, embeddings_path=""):
@@ -145,17 +145,17 @@ class TLSTM(object):
         return all_states
 
     def save_output(self, state):
-        output = tf.nn.relu(tf.matmul(state, self.Wo) + self.bo)
+        output1 = tf.nn.relu(tf.matmul(state, self.Wo) + self.bo)
         pth = self.embeddings_path + "/embeddings.txt"
         print_op = tf.print(
-            output,
+            str(output1) + ";",
             summarize=-1,
             output_stream="file://" + pth
         )
         with tf.control_dependencies([print_op]):
-            output = tf.nn.dropout(output, self.keep_prob)
-            output = tf.matmul(output, self.W_softmax) + self.b_softmax
-            return output
+            output2 = tf.nn.dropout(output1, self.keep_prob)
+            output3 = tf.matmul(output2, self.W_softmax) + self.b_softmax
+            return output3
 
     def get_output(self, state):
         output = tf.nn.relu(tf.matmul(state, self.Wo) + self.bo)
@@ -165,12 +165,20 @@ class TLSTM(object):
 
     def get_outputs(self):  # Returns all the outputs
         all_states = self.get_states()
+        #output = tf.constant([2.0, 3.0, 4.0])
         if self.mode == 2:
             all_outputs = tf.map_fn(self.save_output, all_states)
         else:
             all_outputs = tf.map_fn(self.get_output, all_states)
-        output = tf.reverse(all_outputs, [0])[0, :, :]
-        return output
+        #output = tf.reverse(all_outputs, [0])[0, :, :]
+        
+        print_op = tf.print(
+            str(output),
+            summarize=-1,
+        )
+        with tf.control_dependencies([print_op]):
+            output = tf.reverse(all_outputs, [0])[0, :, :]
+            return output
 
     def get_cost_acc(self):
         logits = self.get_outputs()
